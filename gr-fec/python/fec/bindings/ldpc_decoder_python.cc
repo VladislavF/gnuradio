@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(ldpc_decoder.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(effac3d18ade07156e8eac6d9b292b9f)                     */
+/* BINDTOOL_HEADER_FILE_HASH(0ffaa081e02f436a1547c1cdb03389df)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -39,7 +39,6 @@ void bind_ldpc_decoder(py::module& m)
         .def_static("make",
                     &ldpc_decoder::make,
                     py::arg("alist_file"),
-                    py::arg("sigma") = 0.5,
                     py::arg("max_iterations") = 50,
                     D(ldpc_decoder, make))
 

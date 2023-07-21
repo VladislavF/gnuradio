@@ -36,11 +36,11 @@ public:
     //! Default constructor
     awgn_bp(){};
 
-    //! A constructor for given GF2Mat and sigma
-    awgn_bp(const GF2Mat X, float sgma);
+    //! A constructor for given GF2Mat
+    awgn_bp(const GF2Mat X);
 
-    //! A constructor for given alist and sigma
-    awgn_bp(alist _list, float sgma);
+    //! A constructor for given alist
+    awgn_bp(alist _list);
 
     //! Initializes the class using given alist and sigma
     void set_alist_sigma(alist _list, float sgma);

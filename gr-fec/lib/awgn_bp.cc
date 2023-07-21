@@ -17,14 +17,13 @@
 #include <gnuradio/fec/awgn_bp.h>
 #include <iostream>
 
-awgn_bp::awgn_bp(const GF2Mat X, float sgma)
+awgn_bp::awgn_bp(const GF2Mat X)
 {
     H = X;
     M = H.get_M();
     N = H.get_N();
     Q.resize(M);
     R.resize(M);
-    sigma = sgma;
     for (int i = 0; i < M; i++) {
         Q[i].resize(N);
         R[i].resize(N);
@@ -33,7 +32,7 @@ awgn_bp::awgn_bp(const GF2Mat X, float sgma)
     estimate.resize(N);
 }
 
-awgn_bp::awgn_bp(alist _list, float sgma)
+awgn_bp::awgn_bp(alist _list)
 {
     H = GF2Mat(_list);
     mlist = _list.get_mlist();
@@ -44,7 +43,6 @@ awgn_bp::awgn_bp(alist _list, float sgma)
     N = H.get_N();
     Q.resize(M);
     R.resize(M);
-    sigma = sgma;
     for (int i = 0; i < M; i++) {
         Q[i].resize(N);
         R[i].resize(N);
@@ -136,15 +134,13 @@ void awgn_bp::update_chks()
                 x = std::abs(Q[chk][w]) / 2.0;
                 // x = std::abs(Q[chk][w]);
                 // clamp tanh input (this is some BS, FIXME)
-                if (x > sigma) {
-                    x = sigma;
+                if (x > 18) {
+                    x = 18;
                 }
                 // compute prod(tanh(abs(LLR))/2)
                 tanh_prod = tanh_prod * std::tanh(x);
-                // tanh_prod = tanh_prod*(std::exp(x)-1)/(std::exp(x)+1);
             }
             atanh = std::atanh(tanh_prod);
-            // atanh = 0.5*std::log((tanh_prod+1)/(tanh_prod-1));
             // compute L(m,n)=sign_prod*2tanh^-1(tanh_prod)
             R[chk][v] = sign_prod * 2.0 * atanh;
         }
@@ -158,10 +154,10 @@ void awgn_bp::update_vars()
     //(step 2) of LLR-BP tanh algo
     // iterate over columns of check matrix
     for (int var = 0; var < N; var++) {
-        _sum = rx_lr[var];
         excluded = double(0.0);
         // iterate over nonzero columns of check matrix
         for (int i = 0; i < num_nlist[var]; i++) {
+            _sum = rx_lr[var];
             c = nlist[var][i] - 1;
             // compute sum of LLRs excluding current value
             for (int iprime = 0; iprime < num_nlist[var]; iprime++) {
@@ -178,12 +174,7 @@ void awgn_bp::update_vars()
         }
         // decision is made on this value
         lr[var] = _sum + excluded;
-        // lr values _sum+excluded are broken here nan or even Inf. rx_lr is still valid
-        // though std::cout << " lr:" << _sum+excluded << " rx_lr:" << rx_lr[var]; _sum is
-        // nan but excluded is valid for first block. then both nan. std::cout << " _sum:"
-        // << _sum << " excluded:" << excluded;
     }
-    // std::cout << std::endl;
 }
 
 std::vector<uint8_t> awgn_bp::get_estimate() { return estimate; }
