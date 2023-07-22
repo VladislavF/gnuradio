@@ -54,8 +54,7 @@ public:
     double rate() override;
     bool set_frame_size(unsigned int frame_size) override;
 
-    static generic_decoder::sptr
-    make(std::string alist_file, int max_iterations = 50);
+    static generic_decoder::sptr make(std::string alist_file, int max_iterations = 50);
 
     int get_output_size() override;
     int get_input_size() override;
