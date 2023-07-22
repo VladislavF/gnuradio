@@ -104,7 +104,7 @@ void awgn_bp::spa_initialize()
 
 void awgn_bp::update_chks()
 {
-    double sign_prod, tanh_prod, atanh, x;
+    double tanh_prod, atanh, x;
     int v;
     int w;
     int sign;
@@ -123,26 +123,22 @@ void awgn_bp::update_chks()
                     continue;
                 }
                 w = mlist[chk][iprime] - 1;
-                // compute prod(sign(LLR))
-                if (std::signbit(Q[chk][w])) {
-                    sign = -1;
-                } else {
-                    sign = 1;
-                }
-                sign_prod = sign_prod * sign;
                 // remove divide by 2 for manual tanh
-                x = std::abs(Q[chk][w]) / 2.0;
+                x = Q[chk][w] / 2.0;
                 // x = std::abs(Q[chk][w]);
                 // clamp tanh input (this is some BS, FIXME)
                 if (x > 18) {
                     x = 18;
+                }
+                if (x < -18) {
+                    x = -18;
                 }
                 // compute prod(tanh(abs(LLR))/2)
                 tanh_prod = tanh_prod * std::tanh(x);
             }
             atanh = std::atanh(tanh_prod);
             // compute L(m,n)=sign_prod*2tanh^-1(tanh_prod)
-            R[chk][v] = sign_prod * 2.0 * atanh;
+            R[chk][v] = 2.0 * atanh;
         }
     }
 }
