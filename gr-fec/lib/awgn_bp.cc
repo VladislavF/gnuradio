@@ -125,17 +125,12 @@ void awgn_bp::update_chks()
                 x = Q[chk][w] / 2.0;
                 // x = std::abs(Q[chk][w]);
                 // clamp tanh input (this is some BS, FIXME)
-                if (x > 18) {
-                    x = 18;
-                }
-                if (x < -18) {
-                    x = -18;
-                }
+                x = branchless_clip(x, 18.0);
                 // compute prod(tanh(abs(LLR))/2)
                 tanh_prod = tanh_prod * std::tanh(x);
             }
             atanh = std::atanh(tanh_prod);
-            // compute L(m,n)=sign_prod*2tanh^-1(tanh_prod)
+            // compute L(m,n)=2tanh^-1(tanh_prod)
             R[chk][v] = 2.0 * atanh;
         }
     }
