@@ -107,13 +107,11 @@ void awgn_bp::update_chks()
     double tanh_prod, atanh, x;
     int v;
     int w;
-    int sign;
     //(step 1) of LLR-BP tanh algo.
     // iterate over rows of check matrix
     for (int chk = 0; chk < M; chk++) {
         // iterate over nonzero cols of check matrix
         for (int i = 0; i < num_mlist[chk]; i++) {
-            sign_prod = double(1.0);
             tanh_prod = double(1.0);
             v = mlist[chk][i] - 1;
             // compute product of sign and and tanh LLR's
