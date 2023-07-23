@@ -143,7 +143,7 @@ def soft_dec_table(constel, symbols, prec, npwr=1):
     maxd = numpy.float32((1.0 * padding) - border)
     # the above comment isn't really true, but LUT is funky so we'll
     # scale our points
-    # inside the +-1 LUT we will multiply inputs to obtain LLR's for 
+    # inside the +-1 LUT we will multiply inputs to obtain LLR's for
     # points with the scale ptscale instead of +-1
     ptscale = numpy.float32(2.0 * max_amp * (1.0 - border))
     step = numpy.float32((2.0 * maxd) / (d_lut_scale - 1 - 2))
@@ -213,11 +213,13 @@ def calc_soft_dec_from_table(sample, table, prec: numpy.float32, d_maxamp=1):
     ptscale = numpy.float32(d_padding * 2.0 * d_maxamp)
     limit = numpy.float32(1 - 1e-7)
 
-    xre = branchless_clip(numpy.float32(numpy.float32(sample.real) / ptscale), limit)
-    xim = branchless_clip(numpy.float32(numpy.float32(sample.imag) / ptscale), limit)
+    xre = branchless_clip(numpy.float32(
+        numpy.float32(sample.real) / ptscale), limit)
+    xim = branchless_clip(numpy.float32(
+        numpy.float32(sample.imag) / ptscale), limit)
 
-    #We normalize the constellation in the ctor, so we know that
-    #the maximum dimensions go from -1 to +1. We can infer the x
+    # We normalize the constellation in the ctor, so we know that
+    # the maximum dimensions go from -1 to +1. We can infer the x
     # and y scale directly.
     scale = numpy.float32((d_lut_scale - 2.0) / 2.0)
     # Convert the clipped x and y samples to nearest index offset
@@ -234,9 +236,9 @@ def table_lookup(xre, xim, d_lut_scale, table):
     index = int(numpy.float32(d_lut_scale * xim + xre))
     max_index = d_lut_scale * d_lut_scale
     # Make sure we are in bounds of the index
-    while (index >= max_index):
+    while index >= max_index:
         index -= d_lut_scale
-    while (index < 0):
+    while index < 0:
         index += d_lut_scale
     return table[index]
 
