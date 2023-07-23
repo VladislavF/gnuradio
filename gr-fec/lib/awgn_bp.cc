@@ -6,8 +6,8 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Re-written by Vlad Fomitchev and Peter Parker
- * Caliola Engineering LLC
+ * Re-written by Vlad Fomitchev and Peter Parker at Caliola Engineering LLC, with Daniel
+ * Estevez
  *
  * Based on the tanh-rule BP algorithm here:
  * https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=ccb90917786903efded5a5536d67fdd1440929c0
@@ -15,7 +15,7 @@
  */
 
 #include <gnuradio/fec/awgn_bp.h>
-#include <iostream>
+#include <gnuradio/math.h>
 
 awgn_bp::awgn_bp(const GF2Mat X)
 {
@@ -51,7 +51,7 @@ awgn_bp::awgn_bp(alist _list)
     estimate.resize(N);
 }
 
-void awgn_bp::set_alist_sigma(alist _list, float sgma)
+void awgn_bp::set_alist(alist _list)
 {
     H = GF2Mat(_list);
     mlist = _list.get_mlist();
@@ -62,7 +62,6 @@ void awgn_bp::set_alist_sigma(alist _list, float sgma)
     N = H.get_N();
     Q.resize(M);
     R.resize(M);
-    sigma = sgma;
     for (int i = 0; i < M; i++) {
         Q[i].resize(N);
         R[i].resize(N);
@@ -82,6 +81,9 @@ void awgn_bp::rx_lr_calc(std::vector<float> codeword)
     rx_lr.resize(N);
     float y;
     for (int i = 0; i < N; i++) {
+        // The ldpc_decoder performs a sign inversion before passing the LLR data to
+        // awgn_bp. The input of awgn_bp is LLRs with the convention that a positive LLR
+        // indicates that the bit 0 is more likely.
         y = codeword[i];
         rx_lr[i] = y;
     }
@@ -121,11 +123,11 @@ void awgn_bp::update_chks()
                     continue;
                 }
                 w = mlist[chk][iprime] - 1;
-                // remove divide by 2 for manual tanh
                 x = Q[chk][w] / 2.0;
-                // x = std::abs(Q[chk][w]);
-                // clamp tanh input (this is some BS, FIXME)
-                x = branchless_clip(x, 18.0);
+                // clamp tanh input.
+                // For f64, tanh(19) already gives 1.0 (and we want to avoid computing
+                // atanh(1.0) = inf).
+                x = gr::branchless_clip(x, 18.0);
                 // compute prod(tanh(abs(LLR))/2)
                 tanh_prod = tanh_prod * std::tanh(x);
             }
@@ -138,31 +140,24 @@ void awgn_bp::update_chks()
 
 void awgn_bp::update_vars()
 {
-    double _sum, excluded;
-    int c, d;
-    //(step 2) of LLR-BP tanh algo
+    double _sum;
+    int c;
+    // (step 2) of LLR-BP tanh algo
     // iterate over columns of check matrix
     for (int var = 0; var < N; var++) {
-        excluded = double(0.0);
+        _sum = rx_lr[var];
         // iterate over nonzero columns of check matrix
         for (int i = 0; i < num_nlist[var]; i++) {
-            _sum = rx_lr[var];
             c = nlist[var][i] - 1;
-            // compute sum of LLRs excluding current value
-            for (int iprime = 0; iprime < num_nlist[var]; iprime++) {
-                d = nlist[var][iprime] - 1;
-                // save the excluded value
-                if (i == iprime) {
-                    excluded = R[d][var];
-                } else {
-                    _sum = _sum + R[d][var];
-                }
-            }
-            // this is fed back to node checks
-            Q[c][var] = _sum;
+            _sum += R[c][var];
         }
         // decision is made on this value
-        lr[var] = _sum + excluded;
+        lr[var] = _sum;
+        for (int i = 0; i < num_nlist[var]; i++) {
+            // exclude the current value to generate the message fed back to the nodes
+            c = nlist[var][i] - 1;
+            Q[c][var] = _sum - R[c][var];
+        }
     }
 }
 
@@ -266,7 +261,6 @@ std::vector<uint8_t> awgn_bp::decode(std::vector<float> rx_word, int* niteration
                 break;
             }
         }
-        // std::cout << "niters:" << *niteration << std::endl;
         return estimate;
     }
 }

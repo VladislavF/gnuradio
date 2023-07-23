@@ -213,6 +213,7 @@ protected:
     float d_lut_scale;
     float d_npwr;
     float d_padding;
+    bool d_use_external_lut;
 
     float get_distance(unsigned int index, const gr_complex* sample);
     unsigned int get_closest_point(const gr_complex* sample);

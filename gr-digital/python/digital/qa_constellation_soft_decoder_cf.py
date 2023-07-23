@@ -204,7 +204,7 @@ class test_constellation_soft_decoder(gr_unittest.TestCase):
             src_data,
             digital.qam_16_0x0_0_1_2_3,
             digital.sd_qam_16_0x0_0_1_2_3,
-            1)
+            0)
 
     def test_constellation_soft_decoder_cf_qam16_8_rand2(self):
         prec = 8

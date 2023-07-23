@@ -136,25 +136,50 @@ def soft_dec_table(constel, symbols, prec, npwr=1):
 
     d_lut_scale = numpy.float32(2.0**int(prec))
 
-    #We know we've normalized the constellation, so the min/max
-    #imensions in either direction are scaled to +/-1.
-    maxd = numpy.float32(1.0 * padding)
-    #the above comment isn't really true, but LUT is funky so we'll scale our points
-    #inside the +-1 LUT we will multiply inputs to obtain LLR's for points with the
-    #scale ptscale instead of +-1
-    ptscale = numpy.float32(2.0 * max_amp * (1.0 - (2.0 / d_lut_scale)))
-    step = numpy.float32((2.0 * maxd) / (d_lut_scale - 1))
-    y = -maxd
+    border = numpy.float32(1.0 / d_lut_scale)
+
+    # We know we've normalized the constellation, so the min/max
+    # imensions in either direction are scaled to +/-1.
+    maxd = numpy.float32((1.0 * padding) - border)
+    # the above comment isn't really true, but LUT is funky so we'll
+    # scale our points
+    # inside the +-1 LUT we will multiply inputs to obtain LLR's for 
+    # points with the scale ptscale instead of +-1
+    ptscale = numpy.float32(2.0 * max_amp * (1.0 - border))
+    step = numpy.float32((2.0 * maxd) / (d_lut_scale - 1 - 2))
     table = []
 
-    increment = numpy.float32(maxd + step)
+    limit = numpy.float32(maxd + step)
 
-    while y < increment:
+    # produce a LUT with single index padding around the border
+    y = -maxd
+    while y < limit:
         x = -maxd
-        while x < increment:
+        if y == -maxd:
+            while x < limit:
+                if x == -maxd or x == maxd:
+                    pt = complex(x * ptscale, y * ptscale)
+                    table.append(calc_soft_dec(pt, constel, symbols, npwr))
+                pt = complex(x * ptscale, y * ptscale)
+                table.append(calc_soft_dec(pt, constel, symbols, npwr))
+                x = x + step
+            x = -maxd
+        while x < limit:
+            if x == -maxd or x == maxd:
+                pt = complex(x * ptscale, y * ptscale)
+                table.append(calc_soft_dec(pt, constel, symbols, npwr))
             pt = complex(x * ptscale, y * ptscale)
             table.append(calc_soft_dec(pt, constel, symbols, npwr))
             x = x + step
+        if y == maxd:
+            while x < limit:
+                if x == -maxd or x == maxd:
+                    pt = complex(x * ptscale, y * ptscale)
+                    table.append(calc_soft_dec(pt, constel, symbols, npwr))
+                pt = complex(x * ptscale, y * ptscale)
+                table.append(calc_soft_dec(pt, constel, symbols, npwr))
+                x = x + step
+            x = -maxd
         y = y + step
 
     return table
@@ -254,7 +279,7 @@ def calc_soft_dec(sample, constel, symbols, npwr=1):
 
         # Calculate the probability factor from the distance and the
         # scaled noise power.
-        d = numpy.exp(-dist / (npwr * 2.0))
+        d = numpy.exp(-dist / (npwr * 1.0))
 
         for j in range(k):
             # Get the bit at the jth index

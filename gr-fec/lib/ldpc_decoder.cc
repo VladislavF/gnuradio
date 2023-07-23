@@ -37,7 +37,7 @@ ldpc_decoder::ldpc_decoder(std::string alist_file, int max_iterations)
 
     d_list.read(alist_file.c_str());
     d_code.set_alist(d_list);
-    d_spa.set_alist_sigma(d_list, 1.0);
+    d_spa.set_alist(d_list);
 
     d_rate =
         static_cast<double>(d_code.dimension()) / static_cast<double>(d_code.get_N());

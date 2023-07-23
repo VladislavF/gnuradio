@@ -46,7 +46,8 @@ constellation::constellation(std::vector<gr_complex> constell,
       d_lut_precision(0),
       d_lut_scale(0),
       d_npwr(npwr),
-      d_padding(2.0)
+      d_padding(2.0),
+      d_use_external_lut(false)
 {
     unsigned int constsize = d_constellation.size();
     normalize(normalization);
@@ -75,7 +76,8 @@ constellation::constellation()
       d_lut_precision(0.0),
       d_lut_scale(0.0),
       d_npwr(1.0),
-      d_padding(2.0)
+      d_padding(2.0),
+      d_use_external_lut(false)
 {
     calc_arity();
 }
@@ -254,21 +256,51 @@ void constellation::gen_soft_dec_lut(int precision)
     d_soft_dec_lut.clear();
     d_lut_scale = powf(2.0f, static_cast<float>(precision));
 
-    // We know we've normalized the constellation, so the min/max
-    // dimensions in either direction are scaled to +/-1.
-    float maxd = 1.0f * d_padding;
-    // the above comment isn't really true, but LUT is funky so we'll scale our points
-    // inside the +-1 LUT we will multiply inputs to obtain LLR's for points with the
-    // scale ptscale instead of +-1
-    float ptscale = 2.0f * d_maxamp * (1.0f - (2.0f / d_lut_scale));
-    float step = (2.0f * maxd) / (d_lut_scale - 1);
+    // we use a single unit border to prevent index overflow issues in the LUT
+    float border = 1.0f / d_lut_scale;
+    // the min/max dimensions in either direction are scaled to +/-maxd.
+    // the maximum dimension is determined by padding and precision
+    float maxd = (1.0f * d_padding) - border;
+    float ptscale = 2.0f * d_maxamp * (1.0f - border);
+    float step = (2.0f * maxd) / (d_lut_scale - 1 - 2);
     float y = -maxd;
     while (y < maxd + step) {
         float x = -maxd;
+        // This produces a bottom row of padding
+        if (y == -maxd) {
+            while (x < maxd + step) {
+                if (x == -maxd || x == maxd) {
+                    d_soft_dec_lut.push_back(
+                        calc_soft_dec(gr_complex(x * ptscale, y * ptscale)));
+                }
+                d_soft_dec_lut.push_back(
+                    calc_soft_dec(gr_complex(x * ptscale, y * ptscale)));
+                x += step;
+            }
+            x = -maxd;
+        }
+        // This produces the center body of the LUT
         while (x < maxd + step) {
-            gr_complex pt = gr_complex(x * ptscale, y * ptscale);
-            d_soft_dec_lut.push_back(calc_soft_dec(pt));
+            // duplicate values at the edge of the LUT to prevent index overflow
+            if (x == -maxd || x == maxd) {
+                d_soft_dec_lut.push_back(
+                    calc_soft_dec(gr_complex(x * ptscale, y * ptscale)));
+            }
+            d_soft_dec_lut.push_back(calc_soft_dec(gr_complex(x * ptscale, y * ptscale)));
             x += step;
+        }
+        // This produces the top row of padding
+        if (y == maxd) {
+            while (x < maxd + step) {
+                if (x == -maxd || x == maxd) {
+                    d_soft_dec_lut.push_back(
+                        calc_soft_dec(gr_complex(x * ptscale, y * ptscale)));
+                }
+                d_soft_dec_lut.push_back(
+                    calc_soft_dec(gr_complex(x * ptscale, y * ptscale)));
+                x += step;
+            }
+            x = -maxd;
         }
         y += step;
     }
@@ -289,8 +321,8 @@ std::vector<float> constellation::calc_soft_dec(gr_complex sample)
         // constellation point.
         float dist = powf(std::abs(sample - d_constellation[i]), 2.0f);
         // Calculate the probability factor from the distance and
-        // the scaled noise power.
-        float d = expf(-dist / (d_npwr * 2.0f));
+        // the scaled noise power. (divisor 2.0f for noise amplitude, 1.0f for power?)
+        float d = expf(-dist / (d_npwr * 1.0f));
 
         if (d_apply_pre_diff_code)
             v = d_pre_diff_code[i];
@@ -315,7 +347,16 @@ std::vector<float> constellation::calc_soft_dec(gr_complex sample)
     // probability of ones (tmp[2*i+1]) over the probability of a zero
     // (tmp[2*i+0]).
     for (int i = 0; i < k; i++) {
-        s[k - 1 - i] = (logf(tmp[2 * i + 1]) - logf(tmp[2 * i + 0]));
+        float one = tmp[2 * i + 1];
+        float zero = tmp[2 * i + 0];
+        // clamp input to log to prevent NaN and Inf.
+        if (one < 3.4e-38) {
+            one = 3.4e-38;
+        }
+        if (zero < 3.4e-38) {
+            zero = 3.4e-38;
+        }
+        s[k - 1 - i] = (logf(one) - logf(zero));
     }
 
     return s;
@@ -325,13 +366,19 @@ void constellation::set_soft_dec_lut(const std::vector<std::vector<float>>& soft
                                      int precision)
 {
     max_min_axes();
-
+    d_use_external_lut = true;
     d_soft_dec_lut = soft_dec_lut;
     d_lut_precision = precision;
     d_lut_scale = powf(2.0, static_cast<float>(precision));
 }
 
-void constellation::set_npwr(float npwr) { d_npwr = npwr; }
+void constellation::set_npwr(float npwr)
+{
+    d_npwr = npwr;
+    if (has_soft_dec_lut() && !d_use_external_lut) {
+        gen_soft_dec_lut(d_lut_precision);
+    }
+}
 
 bool constellation::has_soft_dec_lut() { return !d_soft_dec_lut.empty(); }
 
@@ -346,7 +393,7 @@ std::vector<float> constellation::soft_decision_maker(gr_complex sample)
         // match the constellation+padding defined in the LUT
         float ptscale = d_padding * 2.0f * d_maxamp;
 
-        float limit = 1.0f - 1e-7;
+        float limit = 1 - 1e-7;
         float xre = branchless_clip(sample.real() / ptscale, limit);
         float xim = branchless_clip(sample.imag() / ptscale, limit);
 

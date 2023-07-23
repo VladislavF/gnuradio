@@ -42,8 +42,8 @@ public:
     //! A constructor for given alist
     awgn_bp(alist _list);
 
-    //! Initializes the class using given alist and sigma
-    void set_alist_sigma(alist _list, float sgma);
+    //! Initializes the class using given alist
+    void set_alist(alist _list);
 
     //! Returns the variable Q
     std::vector<std::vector<double>> get_Q();
