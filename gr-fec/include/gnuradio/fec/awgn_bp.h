@@ -130,9 +130,6 @@ private:
     //! The parity check matrix of the LDPC code
     GF2Mat H;
 
-    //! The standard-deviation of the AWGN channel
-    float sigma;
-
     //! Matrix holding messages from check nodes to variable nodes
     std::vector<std::vector<double>> R;
 
