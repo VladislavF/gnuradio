@@ -148,8 +148,8 @@ class test_constellation_soft_decoder(gr_unittest.TestCase):
             digital.psk_4_0x0_0_1,
             digital.sd_psk_4_0x0_0_1)
 
-    def test_constellation_soft_decoder_cf_qpsk_10_rand(self):
-        prec = 10
+    def test_constellation_soft_decoder_cf_qpsk_8_rand(self):
+        prec = 8
         src_data = vectorize(complex)(
             2 * random.randn(100), 2 * random.randn(100))
         self.helper_with_lut(

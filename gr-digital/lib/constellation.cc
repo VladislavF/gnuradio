@@ -60,7 +60,6 @@ constellation::constellation(std::vector<gr_complex> constell,
     else
         d_apply_pre_diff_code = true;
     calc_arity();
-    max_min_axes();
 }
 
 constellation::constellation()
@@ -120,6 +119,7 @@ void constellation::normalize(normalization_t normalization)
     default:
         throw std::runtime_error("Invalid constellation normalization type.");
     }
+    max_min_axes();
 }
 
 //! Returns the constellation points for a symbol value
@@ -253,57 +253,60 @@ unsigned int constellation::decision_maker_v(std::vector<gr_complex> sample)
 
 void constellation::gen_soft_dec_lut(int precision, float npwr)
 {
+    // this function generates a LUT with the maximum edge extending to d_padding x the
+    // maximum point in the constellation
     d_soft_dec_lut.clear();
     d_lut_scale = powf(2.0f, static_cast<float>(precision));
 
     // we use a single unit border to prevent index overflow issues in the LUT
-    float border = 1.0f / d_lut_scale;
+    float border = 1.0 / d_lut_scale;
     // the min/max dimensions in either direction are scaled to +/-maxd.
     // the maximum dimension is determined by padding and precision
-    float maxd = (1.0f * d_padding) - border;
-    float ptscale = 2.0f * d_maxamp * (1.0f - border);
-    float step = (2.0f * maxd) / (d_lut_scale - 1 - 2);
-    float y = -maxd;
-    while (y < maxd + step) {
-        float x = -maxd;
+    float maxd = (d_maxamp * d_padding) - border;
+    float step = (2.0 * maxd) / (d_lut_scale - 2.0);
+
+    int y = 0;
+    int endstop = d_lut_scale - 2;
+    while (y < endstop) {
+        int x = 0;
         // This produces a bottom row of padding
-        if (y == -maxd) {
-            while (x < maxd + step) {
-                if (x == -maxd || x == maxd) {
-                    d_soft_dec_lut.push_back(
-                        calc_soft_dec(gr_complex(x * ptscale, y * ptscale), npwr));
+        if (y == 0) {
+            while (x < endstop) {
+                if (x == 0 || x == endstop - 1) {
+                    d_soft_dec_lut.push_back(calc_soft_dec(
+                        gr_complex(-maxd + (x * step), -maxd + (y * step)), npwr));
                 }
-                d_soft_dec_lut.push_back(
-                    calc_soft_dec(gr_complex(x * ptscale, y * ptscale), npwr));
-                x += step;
+                d_soft_dec_lut.push_back(calc_soft_dec(
+                    gr_complex(-maxd + (x * step), -maxd + (y * step)), npwr));
+                x += 1;
             }
-            x = -maxd;
+            x = 0;
         }
         // This produces the center body of the LUT
-        while (x < maxd + step) {
+        while (x < endstop) {
             // duplicate values at the edge of the LUT to prevent index overflow
-            if (x == -maxd || x == maxd) {
-                d_soft_dec_lut.push_back(
-                    calc_soft_dec(gr_complex(x * ptscale, y * ptscale), npwr));
+            if (x == 0 || x == endstop - 1) {
+                d_soft_dec_lut.push_back(calc_soft_dec(
+                    gr_complex(-maxd + (x * step), -maxd + (y * step)), npwr));
             }
             d_soft_dec_lut.push_back(
-                calc_soft_dec(gr_complex(x * ptscale, y * ptscale), npwr));
-            x += step;
+                calc_soft_dec(gr_complex(-maxd + (x * step), -maxd + (y * step)), npwr));
+            x += 1;
         }
+        x = 0;
         // This produces the top row of padding
-        if (y == maxd) {
-            while (x < maxd + step) {
-                if (x == -maxd || x == maxd) {
-                    d_soft_dec_lut.push_back(
-                        calc_soft_dec(gr_complex(x * ptscale, y * ptscale), npwr));
+        if (y == endstop - 1) {
+            while (x < endstop) {
+                if (x == 0 || x == endstop - 1) {
+                    d_soft_dec_lut.push_back(calc_soft_dec(
+                        gr_complex(-maxd + (x * step), -maxd + (y * step)), npwr));
                 }
-                d_soft_dec_lut.push_back(
-                    calc_soft_dec(gr_complex(x * ptscale, y * ptscale), npwr));
-                x += step;
+                d_soft_dec_lut.push_back(calc_soft_dec(
+                    gr_complex(-maxd + (x * step), -maxd + (y * step)), npwr));
+                x += 1;
             }
-            x = -maxd;
         }
-        y += step;
+        y += 1;
     }
 
     d_lut_precision = precision;
@@ -325,9 +328,10 @@ std::vector<float> constellation::calc_soft_dec(gr_complex sample, float npwr)
     for (int i = 0; i < M; i++) {
         // Calculate the distance between the sample and the current
         // constellation point.
-        float dist = powf(std::abs(sample - d_constellation[i]), 2.0f);
+        const gr_complex z = sample - d_constellation[i];
+        float dist = z.real() * z.real() + z.imag() * z.imag();
         // Calculate the probability factor from the distance and
-        // the scaled noise power. (divisor 2.0f for noise amplitude, 1.0f for power?)
+        // the scaled noise power.
         float d = expf(-dist / (npwr * 1.0f));
 
         if (d_apply_pre_diff_code)
@@ -356,11 +360,11 @@ std::vector<float> constellation::calc_soft_dec(gr_complex sample, float npwr)
         float one = tmp[2 * i + 1];
         float zero = tmp[2 * i + 0];
         // clamp input to log to prevent NaN and Inf.
-        if (one < 3.4e-38) {
-            one = 3.4e-38;
+        if (one < 1e-45) {
+            one = 2e-45;
         }
-        if (zero < 3.4e-38) {
-            zero = 3.4e-38;
+        if (zero < 2e-45) {
+            zero = 2e-45;
         }
         s[k - 1 - i] = (logf(one) - logf(zero));
     }
@@ -395,13 +399,12 @@ std::vector<float> constellation::soft_decision_maker(gr_complex sample)
     if (has_soft_dec_lut()) {
         // Clip to just below 1 --> at 1, we can overflow the index
         // that will put us in the next row of the 2D LUT.
-        // Since we are expecting inputs between +-1. We will scale to
-        // match the constellation+padding defined in the LUT
-        float ptscale = d_padding * 2.0f * d_maxamp;
+        float maxd = (d_padding * d_maxamp);
 
-        float limit = 1 - 1e-7;
-        float xre = branchless_clip(sample.real() / ptscale, limit);
-        float xim = branchless_clip(sample.imag() / ptscale, limit);
+        float border = 1.0f / d_lut_scale;
+        float limit = maxd - border;
+        float xre = branchless_clip(sample.real(), limit) / maxd;
+        float xim = branchless_clip(sample.imag(), limit) / maxd;
 
         // We normalize the constellation in the ctor, so we know that
         // the maximum dimensions go from -1 to +1. We can infer the x

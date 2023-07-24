@@ -130,57 +130,48 @@ def soft_dec_table(constel, symbols, prec, npwr=1):
     '''
     # padding will simply be 2x the largest re or imag
     padding = numpy.float32(2.0)
-
     constel = const_normalization(constel, "POWER")
     max_amp = min_max_axes(constel)
 
     d_lut_scale = numpy.float32(2.0**int(prec))
-
     border = numpy.float32(1.0 / d_lut_scale)
+    maxd = numpy.float32((max_amp * padding) - border)
+    step = numpy.float32((2.0 * maxd) / (d_lut_scale - 2.0))
 
-    # We know we've normalized the constellation, so the min/max
-    # imensions in either direction are scaled to +/-1.
-    maxd = numpy.float32((1.0 * padding) - border)
-    # the above comment isn't really true, but LUT is funky so we'll
-    # scale our points
-    # inside the +-1 LUT we will multiply inputs to obtain LLR's for
-    # points with the scale ptscale instead of +-1
-    ptscale = numpy.float32(2.0 * max_amp * (1.0 - border))
-    step = numpy.float32((2.0 * maxd) / (d_lut_scale - 1 - 2))
     table = []
 
-    limit = numpy.float32(maxd + step)
-
     # produce a LUT with single index padding around the border
-    y = -maxd
-    while y < limit:
-        x = -maxd
-        if y == -maxd:
-            while x < limit:
-                if x == -maxd or x == maxd:
-                    pt = complex(x * ptscale, y * ptscale)
+    endstop = int(d_lut_scale - 2)
+    # print("Py", padding, max_amp, d_lut_scale, border, maxd, step)
+    y = 0
+    while y < endstop:
+        x = 0
+        if y == 0:
+            while x < endstop:
+                if x == 0 or x == endstop - 1:
+                    pt = complex(-maxd + (x * step), -maxd + (y * step))
                     table.append(calc_soft_dec(pt, constel, symbols, npwr))
-                pt = complex(x * ptscale, y * ptscale)
+                pt = complex(-maxd + (x * step), -maxd + (y * step))
                 table.append(calc_soft_dec(pt, constel, symbols, npwr))
-                x = x + step
-            x = -maxd
-        while x < limit:
-            if x == -maxd or x == maxd:
-                pt = complex(x * ptscale, y * ptscale)
+                x += 1
+            x = 0
+        while x < endstop:
+            if x == 0 or x == endstop - 1:
+                pt = complex(-maxd + (x * step), -maxd + (y * step))
                 table.append(calc_soft_dec(pt, constel, symbols, npwr))
-            pt = complex(x * ptscale, y * ptscale)
+            pt = complex(-maxd + (x * step), -maxd + (y * step))
             table.append(calc_soft_dec(pt, constel, symbols, npwr))
-            x = x + step
-        if y == maxd:
-            while x < limit:
-                if x == -maxd or x == maxd:
-                    pt = complex(x * ptscale, y * ptscale)
+            x += 1
+        x = 0
+        if y == endstop - 1:
+            while x < endstop:
+                if x == 0 or x == endstop - 1:
+                    pt = complex(-maxd + (x * step), -maxd + (y * step))
                     table.append(calc_soft_dec(pt, constel, symbols, npwr))
-                pt = complex(x * ptscale, y * ptscale)
+                pt = complex(-maxd + (x * step), -maxd + (y * step))
                 table.append(calc_soft_dec(pt, constel, symbols, npwr))
-                x = x + step
-            x = -maxd
-        y = y + step
+                x += 1
+        y += 1
 
     return table
 
@@ -210,13 +201,14 @@ def calc_soft_dec_from_table(sample, table, prec: numpy.float32, d_maxamp=1):
     '''
     d_lut_scale = int(2**prec)
     d_padding = 2.0
-    ptscale = numpy.float32(d_padding * 2.0 * d_maxamp)
-    limit = numpy.float32(1 - 1e-7)
+    border = numpy.float32(1.0 / d_lut_scale)
+    maxd = numpy.float32(d_padding * d_maxamp)
+    limit = numpy.float32(maxd - border)
 
-    xre = branchless_clip(numpy.float32(
-        numpy.float32(sample.real) / ptscale), limit)
-    xim = branchless_clip(numpy.float32(
-        numpy.float32(sample.imag) / ptscale), limit)
+    xre = numpy.float32(branchless_clip(
+        numpy.float32(sample.real), limit) / maxd)
+    xim = numpy.float32(branchless_clip(
+        numpy.float32(sample.imag), limit) / maxd)
 
     # We normalize the constellation in the ctor, so we know that
     # the maximum dimensions go from -1 to +1. We can infer the x
