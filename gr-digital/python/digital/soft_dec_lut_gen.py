@@ -142,33 +142,34 @@ def soft_dec_table(constel, symbols, prec, npwr=1):
 
     # produce a LUT with single index padding around the border
     endstop = int(d_lut_scale - 2)
-    # print("Py", padding, max_amp, d_lut_scale, border, maxd, step)
+    # center the grid
+    start = -maxd + step / 2
     y = 0
     while y < endstop:
         x = 0
         if y == 0:
             while x < endstop:
                 if x == 0 or x == endstop - 1:
-                    pt = complex(-maxd + (x * step), -maxd + (y * step))
+                    pt = complex(start + (x * step), start + (y * step))
                     table.append(calc_soft_dec(pt, constel, symbols, npwr))
-                pt = complex(-maxd + (x * step), -maxd + (y * step))
+                pt = complex(start + (x * step), start + (y * step))
                 table.append(calc_soft_dec(pt, constel, symbols, npwr))
                 x += 1
             x = 0
         while x < endstop:
             if x == 0 or x == endstop - 1:
-                pt = complex(-maxd + (x * step), -maxd + (y * step))
+                pt = complex(start + (x * step), start + (y * step))
                 table.append(calc_soft_dec(pt, constel, symbols, npwr))
-            pt = complex(-maxd + (x * step), -maxd + (y * step))
+            pt = complex(start + (x * step), start + (y * step))
             table.append(calc_soft_dec(pt, constel, symbols, npwr))
             x += 1
         x = 0
         if y == endstop - 1:
             while x < endstop:
                 if x == 0 or x == endstop - 1:
-                    pt = complex(-maxd + (x * step), -maxd + (y * step))
+                    pt = complex(start + (x * step), start + (y * step))
                     table.append(calc_soft_dec(pt, constel, symbols, npwr))
-                pt = complex(-maxd + (x * step), -maxd + (y * step))
+                pt = complex(start + (x * step), start + (y * step))
                 table.append(calc_soft_dec(pt, constel, symbols, npwr))
                 x += 1
         y += 1

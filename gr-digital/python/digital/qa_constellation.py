@@ -278,9 +278,9 @@ class test_constellation(gr_unittest.TestCase):
             y_cpp_table += c.soft_decision_maker(sample)
 
         self.assertFloatTuplesAlmostEqual(
-            y_python_raw_calc, y_python_gen_calc, 0)
-        self.assertFloatTuplesAlmostEqual(y_python_gen_calc, y_python_table, 0)
-        self.assertFloatTuplesAlmostEqual(y_cpp_raw_calc, y_cpp_table, 0)
+            y_python_raw_calc, y_python_gen_calc, 3)
+        self.assertFloatTuplesAlmostEqual(y_python_gen_calc, y_python_table, 1)
+        self.assertFloatTuplesAlmostEqual(y_cpp_raw_calc, y_cpp_table, 1)
 
     def test_soft_qpsk_calc(self):
         prec = 8
@@ -376,8 +376,8 @@ class test_constellation(gr_unittest.TestCase):
             y_cpp_raw_calc += slicer(c.calc_soft_dec(sample))
             y_cpp_table += slicer(c.soft_decision_maker(sample))
 
-        self.assertFloatTuplesAlmostEqual(y_python_raw_calc, y_python_table, 0)
-        self.assertFloatTuplesAlmostEqual(y_cpp_raw_calc, y_cpp_table, 0)
+        self.assertFloatTuplesAlmostEqual(y_python_raw_calc, y_python_table, 3)
+        self.assertFloatTuplesAlmostEqual(y_cpp_raw_calc, y_cpp_table, 3)
 
 
 class mod_demod(gr.hier_block2):

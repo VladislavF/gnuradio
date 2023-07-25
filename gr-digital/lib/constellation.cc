@@ -267,6 +267,8 @@ void constellation::gen_soft_dec_lut(int precision, float npwr)
 
     int y = 0;
     int endstop = d_lut_scale - 2;
+    // center the grid
+    float start = -maxd + step / 2;
     while (y < endstop) {
         int x = 0;
         // This produces a bottom row of padding
@@ -274,10 +276,10 @@ void constellation::gen_soft_dec_lut(int precision, float npwr)
             while (x < endstop) {
                 if (x == 0 || x == endstop - 1) {
                     d_soft_dec_lut.push_back(calc_soft_dec(
-                        gr_complex(-maxd + (x * step), -maxd + (y * step)), npwr));
+                        gr_complex(start + (x * step), start + (y * step)), npwr));
                 }
                 d_soft_dec_lut.push_back(calc_soft_dec(
-                    gr_complex(-maxd + (x * step), -maxd + (y * step)), npwr));
+                    gr_complex(start + (x * step), start + (y * step)), npwr));
                 x += 1;
             }
             x = 0;
@@ -287,10 +289,10 @@ void constellation::gen_soft_dec_lut(int precision, float npwr)
             // duplicate values at the edge of the LUT to prevent index overflow
             if (x == 0 || x == endstop - 1) {
                 d_soft_dec_lut.push_back(calc_soft_dec(
-                    gr_complex(-maxd + (x * step), -maxd + (y * step)), npwr));
+                    gr_complex(start + (x * step), start + (y * step)), npwr));
             }
             d_soft_dec_lut.push_back(
-                calc_soft_dec(gr_complex(-maxd + (x * step), -maxd + (y * step)), npwr));
+                calc_soft_dec(gr_complex(start + (x * step), start + (y * step)), npwr));
             x += 1;
         }
         x = 0;
@@ -299,10 +301,10 @@ void constellation::gen_soft_dec_lut(int precision, float npwr)
             while (x < endstop) {
                 if (x == 0 || x == endstop - 1) {
                     d_soft_dec_lut.push_back(calc_soft_dec(
-                        gr_complex(-maxd + (x * step), -maxd + (y * step)), npwr));
+                        gr_complex(start + (x * step), start + (y * step)), npwr));
                 }
                 d_soft_dec_lut.push_back(calc_soft_dec(
-                    gr_complex(-maxd + (x * step), -maxd + (y * step)), npwr));
+                    gr_complex(start + (x * step), start + (y * step)), npwr));
                 x += 1;
             }
         }
