@@ -270,10 +270,25 @@ def calc_soft_dec(sample, constel, symbols, npwr=1):
         # Calculate the distance between the sample and the current
         # constellation point.
         dist = (abs(sample - constel[i])**2)
+        # distance scaled by noise power
+        arg = -dist / (npwr * 1.0)
 
-        # Calculate the probability factor from the distance and the
-        # scaled noise power.
-        d = numpy.exp(-dist / (npwr * 1.0))
+        # smallest argument to expf that evaluates > C++ FLT_MIN
+        argmin = -86
+
+        # The following check allows graceful failure of LLR
+        # if expf evals below FLT_MIN, probability information is lost
+        # and can become uniform regardless of distance. bad.
+        # going to a linear scale allows extended range where at least the
+        # sign of the bit will still be evaluated correctly (i.e. hard decisions will be correct)
+        # this should only happen with very high SNR or extremely large inputs relative to constellation scale.
+        # scalar set to: expf(argmin)*argmin
+        if arg < argmin:
+            d = (3.84745e-36) / -arg
+        else:
+            # Calculate the probability factor from the distance and the
+            # scaled noise power.
+            d = numpy.exp(arg)
 
         for j in range(k):
             # Get the bit at the jth index
@@ -291,7 +306,14 @@ def calc_soft_dec(sample, constel, symbols, npwr=1):
     # probability of ones (tmp[2*i+1]) over the probability of a zero
     # (tmp[2*i+0]).
     for i in range(k):
-        s[k - 1 - i] = (numpy.log(tmp[2 * i + 1]) - numpy.log(tmp[2 * i + 0]))
+        one = tmp[2 * i + 1]
+        zero = tmp[2 * i + 0]
+        # clamp input to log to prevent Inf.
+        if one < 1e-45:
+            one = 1e-45
+        if zero < 1e-45:
+            zero = 1e-45
+        s[k - 1 - i] = (numpy.log(one) - numpy.log(zero))
 
     return s
 

@@ -319,6 +319,7 @@ std::vector<float> constellation::calc_soft_dec(gr_complex sample, float npwr)
     int k = static_cast<int>(log(static_cast<double>(M)) / log(2.0));
     std::vector<float> tmp(2 * k, 0);
     std::vector<float> s(k, 0);
+    float smallestnum = 1e-45;
 
     // check if noise power was set
     if (npwr < 0) {
@@ -330,9 +331,28 @@ std::vector<float> constellation::calc_soft_dec(gr_complex sample, float npwr)
         // constellation point.
         const gr_complex z = sample - d_constellation[i];
         float dist = z.real() * z.real() + z.imag() * z.imag();
+
+        // scaled distance
+        float arg = -dist / (npwr * 1.0);
+        // smallest argument to expf that evaluates > FLT_MIN
+        float argmin = -86;
+        float d = 0;
+
+        // The following check allows graceful failure of LLR
+        // if expf evals below FLT_MIN, probability information is lost
+        // and can become uniform regardless of distance. bad.
+        // going to a linear scale allows extended range where at least the
+        // sign of the bit will still be evaluated correctly (i.e. hard decisions will be
+        // correct) this should only happen with very high SNR or extremely large inputs
+        // relative to constellation scale. scalar set to: expf(argmin)*argmin
+        if (arg < argmin) {
+            d = (3.84745e-36) / -arg;
+        }
         // Calculate the probability factor from the distance and
         // the scaled noise power.
-        float d = expf(-dist / (npwr * 1.0f));
+        else {
+            d = expf(arg);
+        }
 
         if (d_apply_pre_diff_code)
             v = d_pre_diff_code[i];
@@ -359,12 +379,13 @@ std::vector<float> constellation::calc_soft_dec(gr_complex sample, float npwr)
     for (int i = 0; i < k; i++) {
         float one = tmp[2 * i + 1];
         float zero = tmp[2 * i + 0];
-        // clamp input to log to prevent NaN and Inf.
-        if (one < 1e-45) {
-            one = 2e-45;
+        // clamp log to prevent returning inf.
+        //  smallest num determined empirically.
+        if (one < smallestnum) {
+            one = smallestnum;
         }
-        if (zero < 2e-45) {
-            zero = 2e-45;
+        if (zero < smallestnum) {
+            zero = smallestnum;
         }
         s[k - 1 - i] = (logf(one) - logf(zero));
     }
